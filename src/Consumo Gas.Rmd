@@ -303,12 +303,12 @@ Del resumen de los coeficiente anteriores, se desprende que:
 
 ```{r}
 
-Regresion <- data.frame(id=1:2630,Prediccion=predict(m5Dia,data),Real=data$Consumo)
-Regresion <- melt(Regresion,id.vars = "id")
+Regresion <- data.frame(Fecha = data$Fecha, Prediccion=predict(m5Dia,data), Real=data$Consumo)
+Regresion <- reshape::melt(Regresion, id.vars = "Fecha")
 
-
-ggplot(data = Regresion) +
-  aes(x = id, y = value, color = variable) +
+Regresion %>%
+  ggplot(aes(x = Fecha, y = value, color = variable) )+
+  geom_line() +
   geom_point() +
   theme_bw()+
   labs(title = "Comparación entre modelo y data real ",
