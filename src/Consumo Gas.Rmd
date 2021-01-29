@@ -108,7 +108,10 @@ EpocaMes$EpocaMes <-ordered(EpocaMes$EpocaMes,levels=c("inicio","media","final")
 
 Un primer gráfico interesante a apreciar corresponde a ver cómo está el consumo de Gas a medida que pasa el tiempo.
 ```{r}
-ggplot(data=data,aes(Fecha,Consumo))+ geom_point()+labs(title = "Serie de tiempo")
+
+data %>% ggplot(aes(Fecha,Consumo)) + geom_point()+labs(title = "Serie de tiempo") + geom_smooth(method="lm")
+
+
 ```
 
 ```{r}
@@ -120,10 +123,14 @@ plot(decompose(myts))
 El gráfico anterior es relevante, debido al poder que tiene para representar la situación, en donde se descompone en una tendencia que va al alza, detectanto que existen ciertas estacionalidades. Lo cual hace sentido, considerando que en meses más fríos existe un mayor consumo. Y se apoya la tendencia en alza como consecuencia del aumento demográfico que ha tenido la región.
 
 ```{r}
-PorMes <- data %>% group_by(Mes,Año)  %>% summarise(Consumo=sum(Consumo))
-PorMes <- PorMes[order(PorMes$Año),]
+PorMes <- data %>% 
+  group_by(Mes,Año) %>%
+  summarise(Consumo=sum(Consumo)) %>% 
+  ungroup() %>% 
+  arrange(Año)
 
 mytsMES <- ts(PorMes$Consumo,start=c(1995,10),frequency =12 )
+
 plot(mytsMES, main="Serie de tiempo mensual", xlab="Tiempo",ylab="Consumo")
 plot(decompose(mytsMES))
 
@@ -132,11 +139,12 @@ plot(decompose(mytsMES))
 Con el gráfico anterior, se reafirma la tendencia y estacionalidad, siendo que ahora se consideró un agrupamiento mensual de los datos.
 
 ```{r}
+
 ggplot(data = DiaSemana,aes(DiaSemana,Consumo )) +
   geom_bar(stat='identity') +
   labs(title = "Consumo según día de la semana",
        x = "Día",
-       y = "Consumo total") +
+       y = "Consumo total [$]") +
   theme_bw() + geom_hline(aes(yintercept = mean(Consumo)), color="blue")
 ```
 
@@ -145,7 +153,7 @@ ggplot(data = Feriado,aes(as.factor(Feriado),Consumo )) +
   geom_bar(stat='identity') +
   labs(title = "Consumo según feriado",
        x = "Feriado",
-       y = "Consumo total") +
+       y = "Consumo total [$]") +
   theme_bw() + geom_hline(aes(yintercept = mean(Consumo)), color="blue")
 
 
@@ -158,8 +166,9 @@ ggplot(data = Mes,aes(Mes2,Consumo )) +
   geom_bar(stat='identity') +
   labs(title = "Consumo según Mes",
        x = "Mes",
-       y = "Consumo total") +
-  theme_bw() + geom_hline(aes(yintercept = mean(Consumo)), color="blue")
+       y = "Consumo total [$]") +
+  theme_bw() + 
+  geom_hline(aes(yintercept = mean(Consumo)), color="blue")
 ```
 
 ```{r}
@@ -167,8 +176,9 @@ ggplot(data = Semana,aes(Semana,Consumo )) +
   geom_bar(stat='identity') +
   labs(title = "Consumo según Semana",
        x = "Semana",
-       y = "Consumo total") +
-  theme_bw() + geom_hline(aes(yintercept = mean(Consumo)), color="blue")
+       y = "Consumo total [$]") +
+  theme_bw() +
+  geom_hline(aes(yintercept = mean(Consumo)), color="blue")
 ```
 
 
@@ -177,7 +187,7 @@ ggplot(data = Dia,aes(Dia,Consumo )) +
   geom_bar(stat='identity') +
   labs(title = "Consumo según Día",
        x = "Dia",
-       y = "Consumo total") +
+       y = "Consumo total [$]") +
   theme_bw() + geom_hline(aes(yintercept = mean(Consumo)), color="blue")
 
 ```
@@ -187,16 +197,20 @@ ggplot(data = EpocaMes,aes(EpocaMes,Consumo )) +
   geom_bar(stat='identity') +
   labs(title = "Consumo según época del mes",
        x = "Época del mes",
-       y = "Consumo total") +
-  theme_bw() + geom_hline(aes(yintercept = mean(Consumo)), color="blue")
+       y = "Consumo total [$]") +
+  theme_bw() +
+  geom_hline(aes(yintercept = mean(Consumo)), color="blue")
 ```
+
+
 ```{r}
 ggplot(data = Año,aes(Año,Consumo )) +
   geom_bar(stat='identity') +
   labs(title = "Consumo según Año",
        x = "Año",
-       y = "Consumo total") +
-  theme_bw() + geom_hline(aes(yintercept = mean(Consumo)), color="blue")
+       y = "Consumo total [$]") +
+  theme_bw() +
+  geom_hline(aes(yintercept = mean(Consumo)), color="blue")
 ```
 
 De los gráficos anteriores se aprecia que existe disparidad en el consumo total de energía al agrupar según año, día de la semana, mes, periodo del mes y feriados, lo cual parece indicar que aquellas variables son importantes al momento de modelar la situación buscando pronosticar el consumo futuro en la región.
@@ -208,14 +222,13 @@ Transversalmente, se debe dividir la base de datos en un set de entrenamiento y 
 
 ```{r}
 
-sample <- sample.int(n=nrow(data),size = floor(0.75*nrow(data)),replace = F)
+sample <- sample.int(n=nrow(data), 
+                     size = floor(0.75*nrow(data)), 
+                     replace = F)
+
 data_train <- data[sample,]
 data_valid <- data[-sample,]
 ```
-
-
-
-
 
 ### Regresión lineal
 
@@ -269,7 +282,7 @@ for ( i in 1:ncol(predicciones)){
 
 names(Metricas)[1:3] <- c("Modelo","MAE","MAPE")
 
-Metricas  
+head(Metricas)  
 ```
 
 
