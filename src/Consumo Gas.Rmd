@@ -1,0 +1,462 @@
+---
+title: "Consumo Gas Región Magallanes"
+author: "Víctor Saldías Figueroa"
+date: "1 de agosto de 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+
+```{r,echo=FALSE,results="hide",warning=FALSE,message=FALSE}
+cat("\014")          # clear the screen
+rm(list=ls())					# clear the list of objects
+graphics.off()					# clear the list of graphs
+options(scipen=999)			# number of digits to display
+
+
+## Librerías
+
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(tidyverse)
+library(lubridate)
+library(xts)
+
+
+data <- read.csv("../data/Consumo Gas Región Magallanes.csv", sep = ";")
+```
+
+
+```{r}
+head(data)
+```
+
+
+
+# Codificación data
+
+```{r}
+
+data <- data %>% mutate(Fecha = ISOdate(Año, Mes, Dia),
+                        EpocaMes = case_when(
+                          Dia <= 10 ~ "inicio",
+                          Dia<=20 & Dia>10 ~ "media",
+                          Dia >= 21 ~ "final"
+                        ),
+                        Semana = week(Fecha),
+                        Mes2 = month(Mes, label = T))
+
+
+```
+
+
+
+# Análisis estadístico preliminar:
+
+Al enfrentarse con una dataset desconocido es fundamental hacer un análisis exploratorio preliminar que ayude a sentar ideas sobre la situación que describe, junto con generar insigths para desarrollar un buen modelo predictivo.
+
+```{r}
+
+DiaSemana <- data %>%
+  group_by(DiaSemana) %>% 
+  summarise(Consumo=sum(Consumo)) %>% 
+  ungroup()
+
+Mes <- data %>%
+  group_by(Mes2) %>% 
+  summarise(Consumo=sum(Consumo)) %>% 
+  ungroup()
+
+Semana <- data %>% 
+  group_by(Semana) %>% 
+  summarise(Consumo=sum(Consumo)) %>% 
+  ungroup()
+
+Feriado <- data %>%
+  group_by(Feriado) %>%
+  summarise(Consumo=sum(Consumo)) %>% 
+  ungroup()
+
+Dia <- data %>%
+  group_by(Dia) %>% 
+  summarise(Consumo=sum(Consumo)) %>% 
+  ungroup()
+
+EpocaMes <- data %>%
+  group_by(EpocaMes) %>% 
+  summarise(Consumo=sum(Consumo)) %>% 
+  ungroup()
+
+Año <- data %>%
+  group_by(Año) %>% 
+  summarise(Consumo=sum(Consumo)) %>% 
+  ungroup()
+
+DiaSemana$DiaSemana <- ordered(DiaSemana$DiaSemana, levels=c("Lunes", "Martes", "Miércoles", "Jueves", 
+                                     "Viernes", "Sábado", "Domingo"))
+
+EpocaMes$EpocaMes <-ordered(EpocaMes$EpocaMes,levels=c("inicio","media","final"))
+
+
+```
+
+Un primer gráfico interesante a apreciar corresponde a ver cómo está el consumo de Gas a medida que pasa el tiempo.
+```{r}
+ggplot(data=data,aes(Fecha,Consumo))+ geom_point()+labs(title = "Serie de tiempo")
+```
+
+```{r}
+dates <- data$Fecha
+myts <- ts(data$Consumo,start=c(1995,as.numeric(format(dates[1], "%j"))),frequency =365.25 )
+plot(decompose(myts))
+```
+
+El gráfico anterior es relevante, debido al poder que tiene para representar la situación, en donde se descompone en una tendencia que va al alza, detectanto que existen ciertas estacionalidades. Lo cual hace sentido, considerando que en meses más fríos existe un mayor consumo. Y se apoya la tendencia en alza como consecuencia del aumento demográfico que ha tenido la región.
+
+```{r}
+PorMes <- data %>% group_by(Mes,Año)  %>% summarise(Consumo=sum(Consumo))
+PorMes <- PorMes[order(PorMes$Año),]
+
+mytsMES <- ts(PorMes$Consumo,start=c(1995,10),frequency =12 )
+plot(mytsMES, main="Serie de tiempo mensual", xlab="Tiempo",ylab="Consumo")
+plot(decompose(mytsMES))
+
+```
+
+Con el gráfico anterior, se reafirma la tendencia y estacionalidad, siendo que ahora se consideró un agrupamiento mensual de los datos.
+
+```{r}
+ggplot(data = DiaSemana,aes(DiaSemana,Consumo )) +
+  geom_bar(stat='identity') +
+  labs(title = "Consumo según día de la semana",
+       x = "Día",
+       y = "Consumo total") +
+  theme_bw() + geom_hline(aes(yintercept = mean(Consumo)), color="blue")
+```
+
+```{r}
+ggplot(data = Feriado,aes(as.factor(Feriado),Consumo )) +
+  geom_bar(stat='identity') +
+  labs(title = "Consumo según feriado",
+       x = "Feriado",
+       y = "Consumo total") +
+  theme_bw() + geom_hline(aes(yintercept = mean(Consumo)), color="blue")
+
+
+```
+
+
+
+```{r}
+ggplot(data = Mes,aes(Mes2,Consumo )) +
+  geom_bar(stat='identity') +
+  labs(title = "Consumo según Mes",
+       x = "Mes",
+       y = "Consumo total") +
+  theme_bw() + geom_hline(aes(yintercept = mean(Consumo)), color="blue")
+```
+
+```{r}
+ggplot(data = Semana,aes(Semana,Consumo )) +
+  geom_bar(stat='identity') +
+  labs(title = "Consumo según Semana",
+       x = "Semana",
+       y = "Consumo total") +
+  theme_bw() + geom_hline(aes(yintercept = mean(Consumo)), color="blue")
+```
+
+
+```{r}
+ggplot(data = Dia,aes(Dia,Consumo )) +
+  geom_bar(stat='identity') +
+  labs(title = "Consumo según Día",
+       x = "Dia",
+       y = "Consumo total") +
+  theme_bw() + geom_hline(aes(yintercept = mean(Consumo)), color="blue")
+
+```
+
+```{r}
+ggplot(data = EpocaMes,aes(EpocaMes,Consumo )) +
+  geom_bar(stat='identity') +
+  labs(title = "Consumo según época del mes",
+       x = "Época del mes",
+       y = "Consumo total") +
+  theme_bw() + geom_hline(aes(yintercept = mean(Consumo)), color="blue")
+```
+```{r}
+ggplot(data = Año,aes(Año,Consumo )) +
+  geom_bar(stat='identity') +
+  labs(title = "Consumo según Año",
+       x = "Año",
+       y = "Consumo total") +
+  theme_bw() + geom_hline(aes(yintercept = mean(Consumo)), color="blue")
+```
+
+De los gráficos anteriores se aprecia que existe disparidad en el consumo total de energía al agrupar según año, día de la semana, mes, periodo del mes y feriados, lo cual parece indicar que aquellas variables son importantes al momento de modelar la situación buscando pronosticar el consumo futuro en la región.
+
+## Pronósticos
+
+Transversalmente, se debe dividir la base de datos en un set de entrenamiento y otro para testeo, con el fin de poder determinar precisión de ajuste y, a su vez, lo que es solicitado, que es el poder de pronóstico. Es por ello que se particiona la base de datos en un 75% para entrenamiento y un 25% para testeo.
+
+
+```{r}
+
+sample <- sample.int(n=nrow(data),size = floor(0.75*nrow(data)),replace = F)
+data_train <- data[sample,]
+data_valid <- data[-sample,]
+```
+
+
+
+
+
+### Regresión lineal
+
+Como enfoque de Machine Learning para realizar pronósticos sobre el consumo de gas a futuro se realizarán modelos usando regresiones lineales.
+
+
+```{r}
+
+m1Dia <- lm(Consumo~ Feriado, data=data_train)
+#summary(m1Dia)
+
+m2Dia <- lm(Consumo~ Feriado + factor(Mes2), data=data_train)
+#summary(m2Dia)
+
+m3Dia <- lm(Consumo~ Feriado + factor(Mes2)+factor(EpocaMes), data=data_train)
+#summary(m3Dia)
+
+m4Dia <- lm(Consumo~ Feriado + factor(Mes2)+factor(EpocaMes)+ DiaSemana, data=data_train)
+#summary(m4Dia)
+
+m5Dia <- lm(Consumo~ Feriado + factor(Mes2)+factor(EpocaMes)+ DiaSemana + factor(Año), data=data_train)
+#summary(m5Dia)
+
+
+```
+
+### Validación
+
+Es importante saber qué tan bien ajustan los modelos, para lo cual es conveniente observar el valor otorgado por el R cuadrado ajustado, pero en este caso es más relevante conocer qué tan bien predicen datos no observados, para lo cual se utiliza el data set data_valid.
+Las métricas que se usaran corresponden a MAE, la cual se calcula como el promedio de los valores absolutos de la diferencia entre el pronóstico y el verdadero valor. Dicho indicador permite conocer en cuántas unidades de consumo se desvía el pronóstico en promedio.
+También se utilizara el MAPE, el cual es el promedio de la desviación porcentual absoluta del pronóstico con respecto al valor real. Este indicador permite conocer el porcentaje de desvío del pronóstico, lo cual es útil puesto que se independiza de la escala utilizada en las mediciones de consumo de gas.
+
+
+
+```{r}
+Pred1 <- predict(m1Dia,data_valid)
+Pred2 <- predict(m2Dia,data_valid)
+Pred3 <- predict(m3Dia,data_valid)
+Pred4 <- predict(m4Dia,data_valid)
+Pred5 <- predict(m5Dia,data_valid)
+
+predicciones <- data.frame(Pred1,Pred2,Pred3,Pred4,Pred5)
+
+Metricas <- data.frame()
+for ( i in 1:ncol(predicciones)){
+  Metricas[i,1]=paste(c("Modelo ",i),collapse = "")
+  MAE <- mean(abs(predicciones[,i] - data_valid$Consumo))
+  MAPE <- 100*mean(abs((predicciones[,i] - data_valid$Consumo)/data_valid$Consumo))
+  Metricas[i,2] <- MAE
+  Metricas[i,3] <- MAPE}
+
+names(Metricas)[1:3] <- c("Modelo","MAE","MAPE")
+
+Metricas  
+```
+
+
+Es de lo anterior que se puede afirmar que el Modelo 5 presenta un buen nivel de ajuste en los datos de entrenamiento, y a su vez tiene un alto nivel de predicción, puesto que presenta los menores MAE y MAPE, los cuales son de 51.9 y 7.50 los que dicen que falla en aproximadamente 51.9 unidades de consumo y en un 7.50% con respecto al verdadero valor.
+
+```{r}
+summary(m5Dia)
+```
+
+Del resumen de los coeficiente anteriores, se desprende que:
+
+* Considerando como nivel base al mes de Abril, se observa que en meses más calidos el consumo de Gas disminuye considerablemente, mientras que en meses más fríos sucede el efecto contrario, aumentando el consumo.
+* Considerando como nivel base al día Domingo, se tiene que el consumo es superior con respecto al nivel base para todos los dias a excepción del Sábado, donde es levemente menor.
+* Considerando como nivel base al año 1995, a medida que transcurren los años se visualiza que el consumo va aumentando año tra año, con un pequeño retroceso en el año 1999, por lo que mientras más hacía el futuro esté el año, es mayor el consumo.
+
+* Con respecto a los dias finales del mes (i.e. 2 a 31) el consumo es menor al inicio del mes (i.e. 1 a 10) y levemente superior en los dias intermedios o medios (i.e. 11 a 20)
+* La incidencia de que el día sea feriado se traduce en una disminución del consumo de gas.
+
+```{r}
+
+Regresion <- data.frame(id=1:2630,Prediccion=predict(m5Dia,data),Real=data$Consumo)
+Regresion <- melt(Regresion,id.vars = "id")
+
+
+ggplot(data = Regresion) +
+  aes(x = id, y = value, color = variable) +
+  geom_point() +
+  theme_bw()+
+  labs(title = "Comparación entre modelo y data real ",
+       x = "Tiempo",
+       y = "Consumo",
+       color= "Tipo")
+
+
+```
+
+Del gráfico anterior se aprecia que los puntos rojos correspondientes a la predicción, siguen la misma disposición que los puntos celestes que corresponden a los valores reales. Es así que visualmente ese modelo se valida.
+
+## Modelos más frecuentes
+
+Es importante determinar cuán superior son los modelos propuestos previamente con respecto a modelos más utilizados, basados en "intuiciones" tales como seguir la última tendencia, promediar el consumo, trazar una recta entre el primer punto y el final para luego hiperpolarla. Además, es interesante compararlo con modelos un poco más sofisticados y fuertemente usados en las industria como medias moviles y alisamientos exponenciales.
+
+
+Siguiendo la misma lógica que en los modelos de regresión, se procede a particionar la data en un set de entrenamiento y en otro para testeo de los resultados. Para ser consistentes, se particionara en una fecha tal que en el set de entrenamiento esté el 75% de los datos.
+
+
+
+```{r}
+data_train2 <- data[data$Fecha<"2001-03-13",]
+data_test2 <- data[data$Fecha>="2001-03-13",]
+
+myts_train <- ts(data_train2$Consumo,start=c(1995,as.numeric(format(data_train2$Fecha[1], "%j"))),frequency =365.25 )
+myts_test <- ts(data_test2$Consumo,start=c(2001,as.numeric(format(data_test2$Fecha[1], "%j"))),frequency =365.25 )
+```
+
+
+```{r}
+
+library(forecast)
+# ---- Prónostico usando la media -----%
+mf=meanf(myts_train,h=658)
+plot(mf, main= "Media")
+
+# ---- Pronóstico usando la última observación ---- %
+
+naiv=naive(myts_train,h=658)
+plot(naiv, main= "Naive")
+
+
+# ---- Pronóstico usando la última estacionalidad detectada (Seasonal Naive) ------ %
+
+snaiv=snaive(myts_train,h=658)
+plot(snaiv, main= "Seasonal Naive")
+
+# ---- Pronóstico usando la media entre el primer y último datos (Random walk) -------- %
+drift=rwf(myts_train,h=658)
+plot(drift, main= "Random Walk")
+
+
+# ---- Simple exponential smoothing --%
+
+fcast_ses <- ses(myts_train,h=658)
+plot(fcast_ses, main= "Simple exponential smoothing")
+
+# --- Graficar todo junto --- %
+
+autoplot(myts)+
+  autolayer(meanf(myts_train,h=658),series="Mean",PI = FALSE)+
+  autolayer(naive(myts_train,h=658),series="Naive",PI=FALSE)+
+  autolayer(snaive(myts_train,h=658),series="Seasonal Naive",PI=FALSE)+
+  autolayer(rwf(myts_train,h=658),series="Random walk",PI=FALSE)+
+  autolayer(ses(myts_train,h=658),series="Simple exponential smoothing",PI=FALSE)+
+  ggtitle("Comparación modelos")+
+  xlab("Día") + ylab("Consumo") +
+  guides(colour=guide_legend(title="Pronósticos"))
+
+
+
+
+# ---- moving average con diferentes periodos ---- %
+
+ma_7 <- ma(myts_train,7)
+moving_average7 <- forecast(ma_7,h=658)
+plot(moving_average7, main= "Moving Average con 7 periodos")
+
+ma_14 <- ma(myts_train,14)
+moving_average14 <- forecast(ma_14,h=658)
+plot(moving_average14, main= "Moving Average con 14 periodos")
+
+ma_21 <- ma(myts_train,21)
+moving_average21 <- forecast(ma_21,h=658)
+plot(moving_average21, main= "Moving Average con 21 periodos")
+
+ma_28 <- ma(myts_train,28)
+moving_average28 <- forecast(ma_28,h=658)
+plot(moving_average28, main= "Moving Average con 28 periodos") 
+
+
+
+# Graficar los moving average juntos ---- %
+
+autoplot(myts)+
+  autolayer(moving_average7,series="Moving average con 7 periodos",PI = FALSE)+
+  autolayer(moving_average14,series="Moving average con 14 periodos",PI = FALSE)+
+  autolayer(moving_average21,series="Moving average con 21 periodos",PI = FALSE)+
+  autolayer(moving_average28,series="Moving average con 28 periodos",PI = FALSE)+
+  ggtitle("Comparación de Moving Average")+
+  xlab("Día") + ylab("Consumo") +
+  guides(colour=guide_legend(title="Pronóstico"))
+
+
+# --- Actualizar métricas  ---- %
+
+
+Metricas[6,1]="Modelo media"
+Metricas[7,1]="Modelo naive"
+Metricas[8,1]="Modelo seasonal naive"
+Metricas[9,1]="Modelo random walk"
+Metricas[10,1]="Modelo moving average 7"
+Metricas[11,1]="Modelo moving average 14"
+Metricas[12,1]="Modelo moving average 21"
+Metricas[13,1]="Modelo moving average 28"
+
+
+Metricas[6,2:3] <- accuracy(mf,myts_test)[2,c(3,5)]
+Metricas[7,2:3] <- accuracy(naiv,myts_test)[2,c(3,5)]
+Metricas[8,2:3] <- accuracy(snaiv,myts_test)[2,c(3,5)]
+Metricas[9,2:3] <- accuracy(drift,myts_test)[2,c(3,5)]
+Metricas[10,2:3] <- accuracy(moving_average7,myts_test)[2,c(3,5)]
+Metricas[11,2:3] <- accuracy(moving_average14,myts_test)[2,c(3,5)]
+Metricas[12,2:3] <- accuracy(moving_average21,myts_test)[2,c(3,5)]
+Metricas[13,2:3] <- accuracy(moving_average28,myts_test)[2,c(3,5)]
+
+
+# --- Comparar los nuevos modelos con el modelo de regresión número 5 ----- %
+Metricas[c(5:13),]
+
+```
+
+
+De lo anterior se concluye que el mejor modelo para predecir el consumo de Gas corresponde al modelo de Regresión, dado que tanto las métricas MAE y MAPE son las menores, dando cuenta de la efectividad que tiene para determinar el consumo futuro.
+
+Factores relevantes que pudieran ayudar a estimar más certeramente el consumo futuro son la utilización de información con respecto al precio del gas y las temperaturas, lo cual es sumamente relevante a la hora de estimar el consumo.
+
+Posibles extensiones utilizando modelos más complejos tales como Modelos de Regresiones dinámicas y modelos ARIMA, empleando para ello una data mensual.
+
+A continuación se presenta un ejemplo de cómo se podrían estimar usando ARIMA.
+
+```{r}
+
+Mensual <- ts(PorMes$Consumo[1:65],start=c(1995,10),frequency =12 )
+Mensual_train <- ts(PorMes$Consumo[66:87],start=c(1995,10),frequency =12 )
+
+plot(Mensual)
+fit <- auto.arima(Mensual)
+
+autoplot(forecast(fit,h=22))
+
+summary(fit)
+
+
+
+    
+```
+
+Se visualiza como el modelo tiene un gran nivel de ajuste.
+
+
+
+
